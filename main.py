@@ -2,6 +2,8 @@ import os
 import json
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException, Depends, Header, Body, Security
+from fastapi.responses import HTMLResponse
+import markdown
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from google import genai
@@ -29,6 +31,13 @@ MODEL_NAME = "gemini-flash-latest"
 # Currency API Configuration
 CURRENCY_API_PRIMARY = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies"
 CURRENCY_API_FALLBACK = "https://latest.currency-api.pages.dev/v1/currencies"
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    with open("API_DOCUMENTATION.md", "r") as f:
+        content = f.read()
+    html_content = markdown.markdown(content)
+    return html_content
 
 @app.post("/translate", dependencies=[Depends(verify_api_key)])
 async def translate(request_data: Dict[str, str] = Body(...)):
