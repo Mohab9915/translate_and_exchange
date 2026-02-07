@@ -51,7 +51,11 @@ async def translate(request_data: Dict[str, str] = Body(...)):
         
         # Prepare the prompt for Gemini
         prompt = (
-            f"Translate the following key-value pairs into {target_language}. "
+            f"Act as an expert e-commerce content localizer. Translate the following product data into {target_language}. "
+            "Rules:\n"
+            "1. Use standard, high-quality industry terminology (e.g., 'Mouse' -> 'فأرة', 'Laptop' -> 'حاسوب محمول').\n"
+            "2. STRICTLY PRESERVE all brand names, model numbers, and technical specifications (e.g., 'LOGITECH', 'G502', '4K', 'SSD').\n"
+            "3. Do not transliterate common words if a standard translation exists.\n"
             "Return ONLY a JSON object with the same keys and the translated values. "
             "Do not include any other text or formatting.\n\n"
             f"{json.dumps(data_to_translate, ensure_ascii=False)}"
