@@ -7,6 +7,7 @@ import markdown
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from google import genai
+from google.genai.errors import ClientError
 import httpx
 from dotenv import load_dotenv
 
@@ -58,17 +59,20 @@ async def translate(request_data: Dict[str, str] = Body(...)):
         
         response = client.models.generate_content(
             model=MODEL_NAME,
-            contents=prompt
+            contents=prompt,
+            config={
+                'response_mime_type': 'application/json'
+            }
         )
         
-        content = response.text.strip()
-        if content.startswith("```json"):
-            content = content[7:-3].strip()
-        elif content.startswith("```"):
-            content = content[3:-3].strip()
-            
-        translated_data = json.loads(content)
+        translated_data = json.loads(response.text)
         return translated_data
+        
+    except ClientError as e:
+        # Check specifically for 429 or other client errors
+        if e.code == 429:
+             raise HTTPException(status_code=429, detail=f"Rate limit exceeded: {str(e)}")
+        raise HTTPException(status_code=e.code if e.code else 400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
 
