@@ -14,7 +14,6 @@ load_dotenv()
 
 app = FastAPI(title="Translate and Exchange Service")
 
-# Security Configuration
 API_KEY = os.getenv("API_KEY")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
@@ -23,12 +22,10 @@ async def verify_api_key(api_key: str = Security(api_key_header)):
         raise HTTPException(status_code=403, detail="Could not validate credentials")
     return api_key
 
-# Gemini Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-flash-latest"
 
-# Currency API Configuration
 CURRENCY_API_PRIMARY = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies"
 CURRENCY_API_FALLBACK = "https://latest.currency-api.pages.dev/v1/currencies"
 
@@ -46,10 +43,8 @@ async def translate(request_data: Dict[str, str] = Body(...)):
         if not target_language:
             raise HTTPException(status_code=400, detail="target_language is required")
         
-        # Filter out target_language from data to translate
         data_to_translate = {k: v for k, v in request_data.items() if k != "target_language"}
         
-        # Prepare the prompt for Gemini
         prompt = (
             f"Act as an expert e-commerce content localizer. Translate the following product data into {target_language}. "
             "Rules:\n"
@@ -66,7 +61,6 @@ async def translate(request_data: Dict[str, str] = Body(...)):
             contents=prompt
         )
         
-        # Clean up the response text
         content = response.text.strip()
         if content.startswith("```json"):
             content = content[7:-3].strip()
@@ -93,17 +87,14 @@ async def exchange(
             response = await client.get(url)
             if response.status_code == 200:
                 data = response.json()
-                # The structure is { "date": "...", "eur": { "usd": ... } }
                 rates = data.get(from_curr)
                 if rates and to_curr in rates:
                     return rates[to_curr]
             return None
 
     try:
-        # Try primary URL
         conversion_rate = await fetch_rate(CURRENCY_API_PRIMARY)
         
-        # Try fallback if primary fails
         if conversion_rate is None:
             conversion_rate = await fetch_rate(CURRENCY_API_FALLBACK)
             
