@@ -119,6 +119,90 @@ async def exchange(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Exchange failed: {str(e)}")
 
+# AI Content Generation API
+
+ALLOWED_CATEGORIES = {
+    "general": "General / عام",
+    "clothing": "Clothing / ملابس",
+    "fashion": "Fashion / أزياء",
+    "clothing_fashion": "Clothing & Fashion / ملابس_وأزياء",
+    "clothing_accessories": "Clothing & Accessories / ملابس_و_اكسسوارات",
+    "dress": "Dress / فستان",
+    "skin_care": "Skin Care / بشرة",
+    "makeup": "Makeup / مكياج",
+    "beauty": "Beauty / تجميل",
+    "food": "Food / طعام",
+    "beverages": "Beverages / مشروبات",
+    "food_items": "Food Items / مأكولات",
+    "electronics": "Electronics / إلكترونيات",
+    "technology": "Technology / تقنيات",
+    "devices": "Devices / أجهزة",
+    "furniture": "Furniture / أثاث",
+    "decor": "Decor / ديكور",
+    "home": "Home / منزلي",
+    "kitchen": "Kitchen / مطبخ",
+    "sports": "Sports / رياضة",
+    "jewelry": "Jewelry / مجوهرات",
+    "books": "Books / كتب",
+    "pets": "Pets / حيوانات",
+    "handmade": "Handmade / يدوي",
+    "kids": "Kids / اطفال"
+}
+
+class ContentGenerationRequest(BaseModel):
+    product_name: str
+    product_category: str
+    small_details: str | None = None
+    max_tokens: int = 512
+    temperature: float = 0.7
+    stream: bool = False
+    output_format: str = "paragraph"
+    max_chars: int | None = None
+
+@app.post("/v1/completions", dependencies=[Depends(verify_api_key)])
+async def generate_content(request: ContentGenerationRequest):
+    if request.product_category not in ALLOWED_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category: {request.product_category}")
+    
+    prompt_parts = [
+        f"Generate a creative product description for '{request.product_name}'.",
+        f"Category: {ALLOWED_CATEGORIES[request.product_category]}",
+    ]
+    
+    if request.small_details:
+        prompt_parts.append(f"Details: {request.small_details}")
+        
+    if request.max_chars:
+        prompt_parts.append(f"Limit the response to approximately {request.max_chars} characters.")
+        
+    prompt_parts.append(f"Format the output as a {request.output_format}.")
+    
+    prompt = "\n".join(prompt_parts)
+    
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+            config={
+                'temperature': request.temperature,
+                'max_output_tokens': request.max_tokens,
+                # 'response_mime_type': 'application/json' # Not enforcing JSON for this endpoint based on spec 'text' field
+            }
+        )
+        
+        return {"text": response.text}
+        
+    except ClientError as e:
+        if e.code == 429:
+             raise HTTPException(status_code=429, detail=f"Rate limit exceeded: {str(e)}")
+        raise HTTPException(status_code=e.code if e.code else 400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Content generation failed: {str(e)}")
+
+@app.get("/ready", dependencies=[Depends(verify_api_key)])
+async def readiness_check():
+    return HTMLResponse(content="200 OK", status_code=200)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
